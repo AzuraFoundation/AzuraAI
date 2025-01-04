@@ -1,7 +1,9 @@
 from aiogram import Bot, Dispatcher, types, executor
-from aiogram.types import ParseMode
+from aiogram.types import ParseMode, InputFile
 import os
 from dotenv import load_dotenv
+from src.analyzers.meme_analyzer import MemeAnalyzer
+from src.database.database import Database
 
 # Load environment variables
 load_dotenv()
@@ -9,6 +11,8 @@ load_dotenv()
 # Initialize bot and dispatcher
 bot = Bot(token=os.getenv('TELEGRAM_BOT_TOKEN'))
 dp = Dispatcher(bot)
+db = Database()  # We'll implement this later
+meme_analyzer = MemeAnalyzer(db)
 
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
@@ -21,8 +25,88 @@ Use these commands to navigate:
 /vibe - Check social sentiment
 /crystal - Get meme predictions
 /observe - Monitor meme evolution
+
+📸 Send me any meme image and I'll analyze it for you!
     """
     await message.reply(welcome_text)
+
+@dp.message_handler(content_types=['photo'])
+async def analyze_sent_meme(message: types.Message):
+    """Analyzes meme images sent by users"""
+    await message.reply("🔍 Analyzing your meme...")
+    
+    try:
+        # Get the photo file_id (largest size)
+        photo = message.photo[-1]
+        
+        # Get file info and download URL
+        file_info = await bot.get_file(photo.file_id)
+        file_url = f"https://api.telegram.org/file/bot{bot.token}/{file_info.file_path}"
+        
+        # Get caption if exists
+        caption = message.caption if message.caption else ""
+        
+        # Prepare content for analysis
+        content = {
+            'image_url': file_url,
+            'caption': caption,
+            'file_id': photo.file_id,
+            'source': 'telegram',
+            'timestamp': message.date.isoformat()
+        }
+        
+        # Get analysis
+        analysis = await meme_analyzer.analyze_meme(content)
+        
+        # Format response
+        response = f"""
+🎯 Meme Analysis Results:
+
+📊 Virality Potential: {analysis['virality_score'] * 100:.1f}%
+
+🎭 Sentiment:
+• Positive: {analysis['sentiment']['positive'] * 100:.1f}%
+• Negative: {analysis['sentiment']['negative'] * 100:.1f}%
+• Neutral: {analysis['sentiment']['neutral'] * 100:.1f}%
+
+📈 Trend Indicators:
+• Topics: {', '.join(analysis['trend_indicators']['trending_topics']) or 'None detected'}
+• Related Memes: {len(analysis['trend_indicators']['related_memes'])}
+• Popularity Score: {analysis['trend_indicators']['popularity_metrics'].get('score', 0) * 100:.1f}%
+
+💰 Potential Memecoin Impact: {'High' if analysis['virality_score'] > 0.7 else 'Medium' if analysis['virality_score'] > 0.4 else 'Low'}
+"""
+        await message.reply(response)
+        
+    except Exception as e:
+        await message.reply(f"😅 Oops! Something went wrong while analyzing your meme: {str(e)}")
+
+@dp.message_handler(commands=['trending'])
+async def send_trending_memes(message: types.Message):
+    """Sends trending memes with analysis"""
+    await message.reply("🔍 Analyzing trending memes...")
+    
+    try:
+        trending_memes = await meme_analyzer.analyze_trending_memes()
+        
+        for meme in trending_memes:
+            analysis_text = f"""
+🎯 Meme Analysis:
+📊 Popularity: {meme.popularity_score * 100:.1f}%
+🎭 Sentiment: {meme.sentiment}
+🌍 Origin: {meme.platform_origin}
+🚀 Viral Potential: {meme.viral_potential * 100:.1f}%
+💰 Related Coins: {', '.join(meme.related_coins)}
+            """
+            
+            # Send meme image with analysis
+            await message.answer_photo(
+                photo=meme.image_url,
+                caption=analysis_text,
+                parse_mode=ParseMode.MARKDOWN
+            )
+    except Exception as e:
+        await message.reply(f"😅 Oops! Something went wrong: {str(e)}")
 
 @dp.message_handler(commands=['radar'])
 async def meme_radar(message: types.Message):
