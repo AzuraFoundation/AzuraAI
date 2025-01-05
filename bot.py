@@ -14,6 +14,10 @@ dp = Dispatcher(bot)
 db = Database()  # We'll implement this later
 meme_analyzer = MemeAnalyzer(db)
 
+async def on_startup(dp):
+    """Initialize database on startup"""
+    await db.init_db()
+
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
     welcome_text = """
@@ -154,4 +158,4 @@ async def meme_observatory(message: types.Message):
     await message.reply("🌐 Meme Observatory report: TBD")
 
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True) 
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup) 
