@@ -5,6 +5,7 @@ from datetime import datetime
 from database import Database
 from dataclasses import dataclass
 import aiohttp
+from src.scrapers.reddit_scraper import RedditScraper
 
 @dataclass
 class MemeAnalysis:
@@ -18,6 +19,7 @@ class MemeAnalysis:
 class MemeAnalyzer:
     def __init__(self, db: Database):
         self.db = db
+        self.reddit_scraper = RedditScraper()
 
     async def analyze_meme(self, content: Dict[Any, Any]) -> Dict[str, Any]:
         """
@@ -71,10 +73,20 @@ class MemeAnalyzer:
 
     async def _calculate_virality(self, content: Dict[Any, Any]) -> float:
         """Calculate potential virality score"""
-        # TODO: Implement actual virality scoring logic
-        # For now, return random score between 0.4 and 0.9
-        import random
-        return random.uniform(0.4, 0.9)
+        score = 0.5  # Base score
+        
+        # If content is from Reddit, use Reddit metrics
+        if content.get('source', '').startswith('reddit'):
+            upvote_ratio = content.get('upvote_ratio', 0.5)
+            num_comments = content.get('num_comments', 0)
+            post_score = content.get('score', 0)
+            
+            # Adjust score based on Reddit metrics
+            score += (upvote_ratio - 0.5) * 0.3  # Upvote ratio contribution
+            score += min(num_comments / 1000, 0.3)  # Comments contribution
+            score += min(post_score / 10000, 0.4)  # Score contribution
+        
+        return max(0.0, min(1.0, score))  # Ensure score is between 0 and 1
 
     async def _analyze_sentiment(self, content: Dict[Any, Any]) -> Dict[str, float]:
         """Analyze sentiment of meme content"""
