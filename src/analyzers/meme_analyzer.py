@@ -6,6 +6,7 @@ from database import Database
 from dataclasses import dataclass
 import aiohttp
 from src.scrapers.reddit_scraper import RedditScraper
+from src.scrapers.twitter_scraper import TwitterScraper
 
 @dataclass
 class MemeAnalysis:
@@ -20,6 +21,7 @@ class MemeAnalyzer:
     def __init__(self, db: Database):
         self.db = db
         self.reddit_scraper = RedditScraper()
+        self.twitter_scraper = TwitterScraper()
 
     async def analyze_meme(self, content: Dict[Any, Any]) -> Dict[str, Any]:
         """
@@ -85,6 +87,13 @@ class MemeAnalyzer:
             score += (upvote_ratio - 0.5) * 0.3  # Upvote ratio contribution
             score += min(num_comments / 1000, 0.3)  # Comments contribution
             score += min(post_score / 10000, 0.4)  # Score contribution
+        
+        # If content is from Twitter, use Twitter metrics
+        elif content.get('source') == 'twitter':
+            tweet_id = content.get('tweet_id')
+            if tweet_id:
+                viral_score = await self.twitter_scraper.get_viral_coefficient(tweet_id)
+                score = viral_score
         
         return max(0.0, min(1.0, score))  # Ensure score is between 0 and 1
 
