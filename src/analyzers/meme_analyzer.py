@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import aiohttp
 from src.scrapers.reddit_scraper import RedditScraper
 from src.scrapers.twitter_scraper import TwitterScraper
+from src.scrapers.telegram_scraper import TelegramScraper
 
 @dataclass
 class MemeAnalysis:
@@ -22,6 +23,15 @@ class MemeAnalyzer:
         self.db = db
         self.reddit_scraper = RedditScraper()
         self.twitter_scraper = TwitterScraper()
+        self.telegram_scraper = TelegramScraper()
+
+    async def start(self):
+        """Initialize scrapers"""
+        await self.telegram_scraper.start()
+
+    async def stop(self):
+        """Cleanup scrapers"""
+        await self.telegram_scraper.stop()
 
     async def analyze_meme(self, content: Dict[Any, Any]) -> Dict[str, Any]:
         """
@@ -93,6 +103,14 @@ class MemeAnalyzer:
             tweet_id = content.get('tweet_id')
             if tweet_id:
                 viral_score = await self.twitter_scraper.get_viral_coefficient(tweet_id)
+                score = viral_score
+        
+        # If content is from Telegram, use Telegram metrics
+        elif content.get('source') == 'telegram':
+            message_id = content.get('message_id')
+            channel = content.get('channel')
+            if message_id and channel:
+                viral_score = await self.telegram_scraper.get_viral_coefficient(message_id, channel)
                 score = viral_score
         
         return max(0.0, min(1.0, score))  # Ensure score is between 0 and 1
