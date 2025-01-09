@@ -8,6 +8,9 @@ import aiohttp
 from src.scrapers.reddit_scraper import RedditScraper
 from src.scrapers.twitter_scraper import TwitterScraper
 from src.scrapers.telegram_scraper import TelegramScraper
+from src.analyzers.content_analyzer import ContentAnalyzer
+import asyncio
+import re
 
 @dataclass
 class MemeAnalysis:
@@ -24,6 +27,7 @@ class MemeAnalyzer:
         self.reddit_scraper = RedditScraper()
         self.twitter_scraper = TwitterScraper()
         self.telegram_scraper = TelegramScraper()
+        self.content_analyzer = ContentAnalyzer()
 
     async def start(self):
         """Initialize scrapers"""
@@ -60,8 +64,13 @@ class MemeAnalyzer:
             'hash': content_hash,
             'timestamp': datetime.utcnow().isoformat(),
             'virality_score': await self._calculate_virality(content),
-            'sentiment': await self._analyze_sentiment(content),
-            'trend_indicators': await self._get_trend_indicators(content),
+            'sentiment': await self.content_analyzer.analyze_text_sentiment(
+                content.get('text', '') or content.get('caption', '')
+            ),
+            'image_analysis': await self.content_analyzer.analyze_image_content(
+                content.get('image_data', b'')
+            ),
+            'trend_indicators': await self.content_analyzer.analyze_trends(content),
             'raw_content': {k: v for k, v in content.items() if k != 'image_data'}  # Don't store binary data
         }
 
@@ -115,43 +124,112 @@ class MemeAnalyzer:
         
         return max(0.0, min(1.0, score))  # Ensure score is between 0 and 1
 
-    async def _analyze_sentiment(self, content: Dict[Any, Any]) -> Dict[str, float]:
-        """Analyze sentiment of meme content"""
-        # TODO: Implement actual sentiment analysis
-        # For now, return random values
-        import random
-        positive = random.uniform(0.3, 0.8)
-        negative = random.uniform(0, 1 - positive)
-        neutral = 1 - positive - negative
-        return {
-            'positive': positive,
-            'negative': negative,
-            'neutral': neutral
-        }
-
-    async def _get_trend_indicators(self, content: Dict[Any, Any]) -> Dict[str, Any]:
-        """Identify trend indicators in the meme"""
-        # TODO: Implement actual trend analysis
-        return {
-            'trending_topics': ['crypto', 'defi', 'memes'],
-            'related_memes': [],
-            'popularity_metrics': {'score': 0.65}
-        }
-
     async def analyze_trending_memes(self) -> List[MemeAnalysis]:
-        """Analyze current trending memes across platforms"""
-        # TODO: Implement actual analysis
-        # Placeholder return
-        return [
-            MemeAnalysis(
-                image_url="https://example.com/meme1.jpg",
-                popularity_score=0.85,
-                sentiment="Bullish",
-                platform_origin="Twitter",
-                related_coins=["DOGE", "PEPE"],
-                viral_potential=0.75
-            )
-        ]
+        """
+        Analyze trending memes across all platforms (Reddit, Twitter, Telegram)
+        Returns aggregated and analyzed results
+        """
+        all_memes = []
+        
+        try:
+            # Fetch memes from all platforms concurrently
+            tasks = [
+                self.reddit_scraper.get_trending_memes(limit=10),
+                self.twitter_scraper.get_trending_memes(limit=10),
+                self.telegram_scraper.get_trending_memes(limit=10)
+            ]
+            
+            platform_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process results from each platform
+            for platform_idx, memes in enumerate(platform_results):
+                if isinstance(memes, Exception):
+                    print(f"Error fetching from platform {platform_idx}: {str(memes)}")
+                    continue
+                    
+                for meme in memes:
+                    try:
+                        # Download and analyze image
+                        if meme.get('image_url'):
+                            image_data = await self._download_image(meme['image_url'])
+                            meme['image_data'] = image_data
+                        
+                        # Perform comprehensive analysis
+                        analysis = await self.analyze_meme(meme)
+                        
+                        # Extract relevant coins from text and trends
+                        related_coins = self._extract_related_coins(
+                            analysis['trend_indicators'].get('trending_topics', []),
+                            meme.get('text', ''),
+                            meme.get('caption', '')
+                        )
+                        
+                        # Determine overall sentiment
+                        sentiment_scores = analysis['sentiment']
+                        overall_sentiment = "Neutral"
+                        if sentiment_scores['positive'] > 0.6:
+                            overall_sentiment = "Bullish"
+                        elif sentiment_scores['negative'] > 0.6:
+                            overall_sentiment = "Bearish"
+                        
+                        # Create MemeAnalysis object
+                        meme_analysis = MemeAnalysis(
+                            image_url=meme['image_url'],
+                            popularity_score=analysis['trend_indicators']['popularity_metrics'].get('engagement_rate', 0.0),
+                            sentiment=overall_sentiment,
+                            platform_origin=meme['source'],
+                            related_coins=related_coins,
+                            viral_potential=analysis['virality_score']
+                        )
+                        
+                        all_memes.append(meme_analysis)
+                        
+                    except Exception as e:
+                        print(f"Error analyzing meme: {str(e)}")
+                        continue
+            
+            # Sort by viral potential and popularity
+            all_memes.sort(key=lambda x: (x.viral_potential + x.popularity_score), reverse=True)
+            
+            # Return top 10 memes
+            return all_memes[:10]
+            
+        except Exception as e:
+            print(f"Error in trending memes analysis: {str(e)}")
+            return []
+
+    def _extract_related_coins(self, topics: List[str], *texts: str) -> List[str]:
+        """Extract cryptocurrency mentions from text and topics"""
+        # Common memecoin symbols and names
+        memecoin_patterns = {
+            'DOGE': r'\b(doge(?:coin)?)\b',
+            'SHIB': r'\b(shib(?:a)?(?:inu)?)\b',
+            'PEPE': r'\b(pepe)\b',
+            'WOJAK': r'\b(wojak)\b',
+            'FLOKI': r'\b(floki)\b',
+            'BONK': r'\b(bonk)\b',
+            'MEME': r'\b(meme(?:coin)?)\b'
+        }
+        
+        found_coins = set()
+        
+        # Check topics
+        for topic in topics:
+            topic_lower = topic.lower()
+            for coin, pattern in memecoin_patterns.items():
+                if re.search(pattern, topic_lower, re.IGNORECASE):
+                    found_coins.add(coin)
+        
+        # Check texts
+        for text in texts:
+            if not text:
+                continue
+            text_lower = text.lower()
+            for coin, pattern in memecoin_patterns.items():
+                if re.search(pattern, text_lower, re.IGNORECASE):
+                    found_coins.add(coin)
+        
+        return list(found_coins)
 
     async def get_meme_sentiment(self, meme_url: str) -> str:
         """Analyze sentiment of a specific meme"""
