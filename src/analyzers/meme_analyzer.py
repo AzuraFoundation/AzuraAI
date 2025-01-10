@@ -9,6 +9,7 @@ from src.scrapers.reddit_scraper import RedditScraper
 from src.scrapers.twitter_scraper import TwitterScraper
 from src.scrapers.telegram_scraper import TelegramScraper
 from src.analyzers.content_analyzer import ContentAnalyzer
+from src.analyzers.openai_analyzer import OpenAIAnalyzer
 import asyncio
 import re
 
@@ -20,6 +21,8 @@ class MemeAnalysis:
     platform_origin: str
     related_coins: List[str]
     viral_potential: float
+    ai_insights: Optional[Dict[str, Any]] = None
+    market_prediction: Optional[Dict[str, Any]] = None
 
 class MemeAnalyzer:
     def __init__(self, db: Database):
@@ -28,6 +31,7 @@ class MemeAnalyzer:
         self.twitter_scraper = TwitterScraper()
         self.telegram_scraper = TelegramScraper()
         self.content_analyzer = ContentAnalyzer()
+        self.openai_analyzer = OpenAIAnalyzer()
 
     async def start(self):
         """Initialize scrapers"""
@@ -71,6 +75,11 @@ class MemeAnalyzer:
                 content.get('image_data', b'')
             ),
             'trend_indicators': await self.content_analyzer.analyze_trends(content),
+            'ai_insights': await self.openai_analyzer.analyze_meme(
+                content.get('image_data', b''),
+                content.get('text', '') or content.get('caption', '')
+            ),
+            'market_prediction': await self.openai_analyzer.get_market_prediction(content),
             'raw_content': {k: v for k, v in content.items() if k != 'image_data'}  # Don't store binary data
         }
 
@@ -179,7 +188,9 @@ class MemeAnalyzer:
                             sentiment=overall_sentiment,
                             platform_origin=meme['source'],
                             related_coins=related_coins,
-                            viral_potential=analysis['virality_score']
+                            viral_potential=analysis['virality_score'],
+                            ai_insights=analysis.get('ai_insights'),
+                            market_prediction=analysis.get('market_prediction')
                         )
                         
                         all_memes.append(meme_analysis)
