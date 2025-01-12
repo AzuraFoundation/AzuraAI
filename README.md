@@ -79,6 +79,55 @@ alembic history
 alembic current
 ```
 
+## Development
+
+### Setup Development Environment
+
+1. Install development dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Install pre-commit hooks:
+```bash
+pre-commit install
+```
+
+### Code Quality
+
+We use several tools to maintain code quality:
+
+- **Black**: Code formatting
+- **Ruff**: Fast Python linter
+- **MyPy**: Static type checking
+
+Run linters manually:
+```bash
+# Format code
+black .
+
+# Run linter
+ruff check .
+
+# Type checking
+mypy src/
+```
+
+### Testing
+
+Run tests with coverage:
+```bash
+pytest tests/ --cov=src/
+```
+
+### CI/CD
+
+GitHub Actions automatically run:
+- Code formatting check
+- Linting
+- Type checking
+- Tests with coverage reporting
+
 ## License
 
 MIT License - see LICENSE file for details.
