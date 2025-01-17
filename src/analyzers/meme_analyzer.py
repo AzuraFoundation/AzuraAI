@@ -10,6 +10,7 @@ from src.scrapers.twitter_scraper import TwitterScraper
 from src.scrapers.telegram_scraper import TelegramScraper
 from src.analyzers.content_analyzer import ContentAnalyzer
 from src.analyzers.openai_analyzer import OpenAIAnalyzer
+from src.analyzers.memecoin_analyzer import MemecoinAnalyzer, MemecoinAnalysis
 import asyncio
 import re
 
@@ -32,6 +33,7 @@ class MemeAnalyzer:
         self.telegram_scraper = TelegramScraper()
         self.content_analyzer = ContentAnalyzer()
         self.openai_analyzer = OpenAIAnalyzer()
+        self.memecoin_analyzer = MemecoinAnalyzer()
 
     async def start(self):
         """Initialize scrapers"""
@@ -245,4 +247,56 @@ class MemeAnalyzer:
     async def get_meme_sentiment(self, meme_url: str) -> str:
         """Analyze sentiment of a specific meme"""
         # TODO: Implement sentiment analysis
-        return "Bullish" 
+        return "Bullish"
+
+    async def analyze_memecoin(self, symbol: str, timeframe_hours: int = 24) -> Optional[MemecoinAnalysis]:
+        """
+        Analyze a specific memecoin based on recent meme data
+        
+        Args:
+            symbol: Coin symbol (e.g., 'DOGE')
+            timeframe_hours: Analysis timeframe
+            
+        Returns:
+            MemecoinAnalysis object or None if insufficient data
+        """
+        try:
+            # Get recent meme analyses from database
+            recent_analyses = await self.db.get_recent_analyses(timeframe_hours)
+            
+            if not recent_analyses:
+                return None
+            
+            # Analyze memecoin trends
+            return await self.memecoin_analyzer.analyze_coin(
+                symbol,
+                recent_analyses,
+                timeframe_hours
+            )
+            
+        except Exception as e:
+            print(f"Error analyzing memecoin {symbol}: {str(e)}")
+            return None
+
+    async def get_trending_memecoins(self, timeframe_hours: int = 24) -> List[MemecoinAnalysis]:
+        """Get analysis of trending memecoins"""
+        try:
+            analyses = []
+            
+            # Analyze each tracked memecoin
+            for symbol in self.memecoin_analyzer.memecoin_map.keys():
+                analysis = await self.analyze_memecoin(symbol, timeframe_hours)
+                if analysis and analysis.confidence > 0.5:  # Only include high-confidence analyses
+                    analyses.append(analysis)
+            
+            # Sort by combined impact score
+            analyses.sort(
+                key=lambda x: (x.sentiment_score + x.virality_score + abs(x.price_impact)),
+                reverse=True
+            )
+            
+            return analyses
+            
+        except Exception as e:
+            print(f"Error getting trending memecoins: {str(e)}")
+            return [] 
