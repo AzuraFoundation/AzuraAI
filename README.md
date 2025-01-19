@@ -1,6 +1,14 @@
 # Azura AI
 
-🚀 From Doge to Pepe, Azura AI is your galaxy-brain companion in the wild world of memes and memecoins. This AI powerhouse doesn't just analyze memes – it speaks the language of internet culture, tracking everything from the dankest trends to the next potential moonshot in the memecoin universe.
+<div align="center">
+  <img src="docs/images/banner_notext.jpg" alt="Azura AI Banner" width="100%">
+  <br/>
+  <p><em>Your AI companion in the world of memes and memecoins 🚀</em></p>
+</div>
+
+## About
+
+From Doge to Pepe, Azura AI is your galaxy-brain companion in the wild world of memes and memecoins. This AI powerhouse doesn't just analyze memes – it speaks the language of internet culture, tracking everything from the dankest trends to the next potential moonshot in the memecoin universe.
 
 ## Features
 
