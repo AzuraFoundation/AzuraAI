@@ -4,6 +4,7 @@
   <img src="docs/images/banner_notext.jpg" alt="Azura AI Banner" width="100%">
   <br/>
   <p><em>Your AI companion in the world of memes and memecoins 🚀</em></p>
+  <h2>CA: 5ZLi33JX7UmtVdJDw3czCq3aESSe4dfkTVTU4thJpump</h2>
   <p>
     <img src="https://github.com/AzuraFoundation/AzuraAI/workflows/Tests/badge.svg" alt="Tests">
     <img src="https://github.com/AzuraFoundation/AzuraAI/workflows/Lint/badge.svg" alt="Lint">
