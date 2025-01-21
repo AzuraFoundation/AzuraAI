@@ -5,6 +5,10 @@
   <br/>
   <p><em>Your AI companion in the world of memes and memecoins 🚀</em></p>
   <p>
+    <img src="https://github.com/AzuraFoundation/AzuraAI/workflows/Tests/badge.svg" alt="Tests">
+    <img src="https://github.com/AzuraFoundation/AzuraAI/workflows/Lint/badge.svg" alt="Lint">
+  </p>
+  <p>
     <a href="https://azura.build">Website</a> •
     <a href="https://x.com/Azura_terminal">Twitter</a> •
     <a href="https://t.me/azurabuild">Telegram</a> •
