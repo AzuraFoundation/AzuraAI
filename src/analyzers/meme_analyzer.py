@@ -11,6 +11,7 @@ from src.scrapers.telegram_scraper import TelegramScraper
 from src.analyzers.content_analyzer import ContentAnalyzer
 from src.analyzers.openai_analyzer import OpenAIAnalyzer
 from src.analyzers.memecoin_analyzer import MemecoinAnalyzer, MemecoinAnalysis
+from src.visualization.plotter import MemeVisualizer
 import asyncio
 import re
 
@@ -34,6 +35,7 @@ class MemeAnalyzer:
         self.content_analyzer = ContentAnalyzer()
         self.openai_analyzer = OpenAIAnalyzer()
         self.memecoin_analyzer = MemecoinAnalyzer()
+        self.visualizer = MemeVisualizer()
 
     async def start(self):
         """Initialize scrapers"""
@@ -299,4 +301,39 @@ class MemeAnalyzer:
             
         except Exception as e:
             print(f"Error getting trending memecoins: {str(e)}")
-            return [] 
+            return []
+
+    async def generate_analytics_report(self, timeframe_hours: int = 24) -> Dict[str, str]:
+        """Generate analytics report with visualizations"""
+        try:
+            # Get recent analyses
+            analyses = await self.db.get_recent_analyses(timeframe_hours)
+            
+            if not analyses:
+                return {}
+            
+            # Get trending memecoins
+            memecoin_analyses = await self.get_trending_memecoins(timeframe_hours)
+            
+            # Generate plots
+            plots = {
+                'sentiment': await self.visualizer.create_sentiment_timeline(analyses),
+                'virality': await self.visualizer.create_virality_heatmap(analyses),
+                'memecoin_impact': await self.visualizer.create_memecoin_impact(
+                    [m.__dict__ for m in memecoin_analyses]
+                ),
+                'trend_network': await self.visualizer.create_trend_network(analyses)
+            }
+            
+            # Save plots
+            report_files = {}
+            for name, plot in plots.items():
+                path = f"reports/{name}_{int(datetime.utcnow().timestamp())}.png"
+                await self.visualizer.save_plot(plot, path)
+                report_files[name] = path
+            
+            return report_files
+            
+        except Exception as e:
+            print(f"Error generating analytics report: {str(e)}")
+            return {} 
